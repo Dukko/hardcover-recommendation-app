@@ -1,7 +1,5 @@
 [theme]
-primaryColor = "#FF79C6"        # Dracula Pink (Primary Action)
-backgroundColor = "#282A36"     # Dracula Background (Dark Slate)
-secondaryBackgroundColor = "#44475A" # Dracula Selection (Sidebar)
-textColor = "#F8F8F2"           # Dracula Foreground (Off-White)
-font = "sans serif"
-base = "dark"
+primaryColor="#bd93f9"
+backgroundColor="#282a36"
+secondaryBackgroundColor="#44475a"
+textColor="#f8f8f2"

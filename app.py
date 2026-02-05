@@ -1,6 +1,7 @@
 import streamlit as st
 import requests
 import google.generativeai as genai
+import json
 from datetime import datetime
 
 # Configuration
@@ -40,6 +41,8 @@ def fetch_enhanced_library(token):
           book {
             title
             release_date
+            rating
+            taggings(limit: 5) { tag { tag } }
             contributions { author { name } }
           }
         }
@@ -63,17 +66,70 @@ def fetch_enhanced_library(token):
                 author_str = ", ".join(authors) if authors else "Unknown"
                 r_date = book.get('release_date', '')
                 year = r_date[:4] if r_date else "Unknown"
+                community_rating = book.get('rating')
+                tags = [t['tag']['tag'] for t in book.get('taggings', []) if t.get('tag')]
+                tags_str = ", ".join(tags) if tags else "Untagged"
                 
                 library.append({
                     "title": book.get('title', 'Unknown'),
                     "author": author_str,
                     "rating": entry.get('rating', 0),
                     "year": year,
+                    "community_rating": community_rating,
+                    "tags": tags_str,
                     "full_str": f"{book.get('title')} by {author_str} ({year})"
                 })
             except: continue
         return library, None
     except Exception as e: return None, str(e)
+
+# Search for books in Hardcover database
+def search_hardcover_books(token, title, author=None):
+    url = "https://api.hardcover.app/v1/graphql"
+    headers = {"authorization": token, "content-type": "application/json"}
+    
+    # Escape special characters in title for GraphQL
+    title_escaped = title.replace('"', '\\"')
+    
+    # Use the search endpoint - request basic fields
+    query = f"""
+    query SearchBooks {{
+      search(
+        query: "{title_escaped}"
+        query_type: "Book"
+        per_page: 5
+        page: 1
+      ) {{
+        ids
+        results
+      }}
+    }}
+    """
+    
+    try:
+        response = requests.post(url, json={'query': query}, headers=headers, timeout=10)
+        if response.status_code != 200: 
+            return None
+        
+        data = response.json()
+        if "errors" in data:
+            return None
+        
+        search_data = data.get('data', {}).get('search', {})
+        results = search_data.get('results', {})
+        hits = results.get('hits', [])
+        
+        if not hits:
+            return None
+        
+        # Extract the document from the first hit
+        first_hit = hits[0]
+        book_data = first_hit.get('document', {})
+        
+        return book_data if book_data else None
+            
+    except Exception as e:
+        return None
 
 # AI recommendation logic
 def get_ai_recommendations(api_key, library, filters):
@@ -82,7 +138,7 @@ def get_ai_recommendations(api_key, library, filters):
     fallback_model = "gemini-1.5-flash"
     
     titles_read = [b['title'] for b in library]
-    recent_reads = "\n".join([f"- {b['full_str']} (My Rating: {b['rating']})" for b in library[:60]])
+    recent_reads = "\n".join([f"- {b['full_str']} (My Rating: {b['rating']}/5, Tags: {b['tags']})" for b in library[:60]])  # Note: still using tags from library for taste profile
     start_year, end_year = filters['year_range']
     
     prompt = f"""
@@ -90,10 +146,11 @@ def get_ai_recommendations(api_key, library, filters):
     
     **USER REQUEST:**
     Recommend 5 books matching these strict criteria:
-    - **Genre:** {filters['genre']}
-    - **Mood:** {filters['mood']}
+    - **Moods:** {filters['moods']}
+    - **Genres:** {filters['genres']}
     - **Length:** ~{filters['pages']} pages
     - **Publication Year:** Must be published between {start_year} and {end_year}
+    - **Min Rating:** Must have a rating of {filters['min_rating']} or higher
     
     **EXCLUSION LIST:**
     {titles_read}
@@ -101,10 +158,12 @@ def get_ai_recommendations(api_key, library, filters):
     **USER TASTE PROFILE (Based on recent reads):**
     {recent_reads}
     
-    **OUTPUT FORMAT (Markdown Table):**
-    | Book Title | Author | Year | Why it fits |
-    | :--- | :--- | :--- | :--- |
-    | ... | ... | ... | ... |
+    **OUTPUT FORMAT (JSON Array):**
+    Return ONLY a valid JSON array with no markdown, no code blocks. Example:
+    [
+      {{"title": "Book Title", "author": "Author Name", "reason": "Why it fits"}},
+      {{"title": "Another Book", "author": "Another Author", "reason": "Why it fits"}}
+    ]
     """
     
     try:
@@ -120,12 +179,13 @@ def get_ai_recommendations(api_key, library, filters):
 hc_token, gem_key = get_credentials()
 
 with st.sidebar:
-    st.header("🧛 Dracula Settings")
+    st.header("⚙️ Settings")
     
     st.subheader("Filters")
-    f_genre = st.text_input("Genre", "Gothic Horror")
-    f_mood = st.text_input("Mood", "Eerie")
+    f_moods = st.text_input("Moods (comma-separated)", "Eerie, Dark")
+    f_genres = st.text_input("Genres (comma-separated)", "Gothic Horror, Horror")
     f_pages = st.slider("Max Pages", 200, 1000, 400)
+    f_min_rating = st.slider("Min Rating", 0.0, 5.0, 3.0, step=0.5)
     
     current_year = datetime.now().year
     f_year_range = st.slider(
@@ -140,15 +200,15 @@ with st.sidebar:
         st.cache_data.clear()
         st.rerun()
 
-st.title("📚 Hardcover AI")
+st.title("📚 Hardcover AI Librarian")
 st.markdown("Your personal librarian, powered by **Gemini** and your **Hardcover** history.")
 
 if st.button("Analyze & Recommend", type="primary"):
     if not hc_token or not gem_key:
         st.error("⚠️ Missing API Keys. Check sidebar or secrets.toml.")
     else:
-        with st.status("Connecting to Neural Network...", expanded=True) as status:
-            status.write("📥 Fetching library from Hardcover...")
+        with st.status("🪄 Doing my AI Librarian magic...", expanded=True) as status:
+            status.write("📥 Fetching your library from Hardcover...")
             library, error = fetch_enhanced_library(hc_token)
             
             if error:
@@ -157,15 +217,77 @@ if st.button("Analyze & Recommend", type="primary"):
             else:
                 status.write(f"🧠 Analyzing {len(library)} books for patterns...")
                 filters = {
-                    "genre": f_genre, 
-                    "mood": f_mood, 
+                    "moods": f_moods,
+                    "genres": f_genres, 
                     "pages": f_pages, 
-                    "year_range": f_year_range 
+                    "year_range": f_year_range,
+                    "min_rating": f_min_rating
                 }
                 
-                recs, used_model = get_ai_recommendations(gem_key, library, filters)
+                recs_text, used_model = get_ai_recommendations(gem_key, library, filters)
                 
-                status.update(label="Complete!", state="complete", expanded=False)
-                st.success(f"Generated using **{used_model}** based on {len(library)} read books.")
-                st.markdown("### 📖 Top Recommendations")
-                st.markdown(recs)
+                # Parse AI recommendations and lookup in Hardcover
+                status.write("🔍 Verifying books in Hardcover database...")
+                
+                try:
+                    # Extract JSON from response
+                    json_str = recs_text.strip()
+                    if json_str.startswith('```'):
+                        json_str = json_str.split('```')[1]
+                        if json_str.startswith('json'):
+                            json_str = json_str[4:]
+                    
+                    recommendations = json.loads(json_str)
+                    
+                    # Lookup each book in Hardcover and build results table
+                    results = []
+                    for rec in recommendations:
+                        book_data = search_hardcover_books(hc_token, rec.get('title', ''), rec.get('author', ''))
+                        if book_data:
+                            # Extract moods from search API (limit to top 3)
+                            moods_data = book_data.get('moods', [])
+                            moods_str = ", ".join(moods_data[:3]) if moods_data else "—"
+                            
+                            # Extract genres from search API (limit to top 3)
+                            genres_data = book_data.get('genres', [])
+                            genres_str = ", ".join(genres_data[:3]) if genres_data else "—"
+                            
+                            # Round rating to 1 decimal place
+                            rating = book_data.get('rating', 'N/A')
+                            if isinstance(rating, (int, float)):
+                                rating = round(rating, 1)
+                            
+                            # Get hardcover link from slug
+                            book_slug = book_data.get('slug', '')
+                            hardcover_link = f"https://hardcover.app/books/{book_slug}" if book_slug else "#"
+                            
+                            results.append({
+                                "title": book_data.get('title', rec.get('title')),
+                                "author": rec.get('author', ''),
+                                "rating": rating,
+                                "moods": moods_str,
+                                "genres": genres_str,
+                                "reason": rec.get('reason', ''),
+                                "link": hardcover_link
+                            })
+                    
+                    status.update(label="Complete!", state="complete", expanded=True)
+                    st.success(f"Generated using **{used_model}** based on {len(library)} read books.")
+                    
+                    # Display results in expanded container
+                    with st.expander("📖 Top Recommendations", expanded=True):
+                        # Display as markdown table
+                        if results:
+                            table_md = "| Book Title | Author | Rating | Genres | Moods | Why it fits |\n"
+                            table_md += "| :--- | :--- | :--- | :--- | :--- | :--- |\n"
+                            for r in results:
+                                title_link = f"[{r['title']}]({r['link']})"
+                                table_md += f"| {title_link} | {r['author']} | {r['rating']} | {r['genres']} | {r['moods']} | {r['reason']} |\n"
+                            st.markdown(table_md)
+                        else:
+                            st.warning("⚠️ None of the AI recommendations were found in Hardcover's database. Try different filters or moods.")
+                    
+                except json.JSONDecodeError as e:
+                    status.update(label="Parse Error", state="error")
+                    st.error(f"Failed to parse AI response as JSON: {str(e)}")
+                    st.text_area("Raw Response:", recs_text)
