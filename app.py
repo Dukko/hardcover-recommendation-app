@@ -3,7 +3,7 @@ import requests
 import google.generativeai as genai
 from datetime import datetime
 
-# --- 1. CONFIGURATION ---
+# Configuration
 st.set_page_config(
     page_title="Hardcover AI (Dracula Edition)", 
     page_icon="🧛", 
@@ -11,7 +11,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# --- 3. CREDENTIALS ---
+# Credentials
 def get_credentials():
     hc_token = st.secrets.get("connections", {}).get("hardcover_token", "")
     gem_key = st.secrets.get("connections", {}).get("gemini_key", "")
@@ -23,7 +23,7 @@ def get_credentials():
             if not gem_key: gem_key = st.text_input("Gemini API Key", type="password")
     return hc_token, gem_key
 
-# --- 4. API CLIENT ---
+# API client
 def fetch_enhanced_library(token):
     url = "https://api.hardcover.app/v1/graphql"
     headers = {"authorization": token, "content-type": "application/json"}
@@ -75,7 +75,7 @@ def fetch_enhanced_library(token):
         return library, None
     except Exception as e: return None, str(e)
 
-# --- 5. GEMINI LOGIC ---
+# AI recommendation logic
 def get_ai_recommendations(api_key, library, filters):
     genai.configure(api_key=api_key)
     model_name = "gemini-3-flash-preview"
@@ -95,7 +95,7 @@ def get_ai_recommendations(api_key, library, filters):
     - **Length:** ~{filters['pages']} pages
     - **Publication Year:** Must be published between {start_year} and {end_year}
     
-    **EXCLUSION LIST (Do NOT recommend):**
+    **EXCLUSION LIST:**
     {titles_read}
     
     **USER TASTE PROFILE (Based on recent reads):**
@@ -116,7 +116,7 @@ def get_ai_recommendations(api_key, library, filters):
         response = model.generate_content(prompt)
         return response.text, fallback_model
 
-# --- 6. EXECUTION ---
+# Initialize credentials
 hc_token, gem_key = get_credentials()
 
 with st.sidebar:
@@ -132,7 +132,7 @@ with st.sidebar:
         "Publication Year", 
         min_value=1800, 
         max_value=current_year, 
-        value=(1897, current_year) # 1897 = Dracula publication year
+        value=(1897, current_year)  # Default to Dracula publication year
     )
     
     st.divider()
@@ -140,7 +140,6 @@ with st.sidebar:
         st.cache_data.clear()
         st.rerun()
 
-# MAIN AREA
 st.title("📚 Hardcover AI")
 st.markdown("Your personal librarian, powered by **Gemini** and your **Hardcover** history.")
 
