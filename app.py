@@ -135,7 +135,7 @@ def search_hardcover_books(token, title, author=None):
 def get_ai_recommendations(api_key, library, filters):
     genai.configure(api_key=api_key)
     model_name = "gemini-3-flash-preview"
-    fallback_model = "gemini-1.5-flash"
+    fallback_model = "gemini-2.0-flash"
     
     titles_read = [b['title'] for b in library]
     recent_reads = "\n".join([f"- {b['full_str']} (My Rating: {b['rating']}/5, Tags: {b['tags']})" for b in library[:60]])  # Note: still using tags from library for taste profile
@@ -145,7 +145,7 @@ def get_ai_recommendations(api_key, library, filters):
     Act as an elite literary curator. 
     
     **USER REQUEST:**
-    Recommend 5 books matching these strict criteria:
+    Recommend 10 books matching these strict criteria:
     - **Moods:** {filters['moods']}
     - **Genres:** {filters['genres']}
     - **Length:** ~{filters['pages']} pages
@@ -240,10 +240,13 @@ if st.button("Analyze & Recommend", type="primary"):
                     recommendations = json.loads(json_str)
                     
                     # Lookup each book in Hardcover and build results table
+                    # Filter to recommendations with 3+ ratings and take up to 10
                     results = []
                     for rec in recommendations:
+                        if len(results) >= 10:
+                            break
                         book_data = search_hardcover_books(hc_token, rec.get('title', ''), rec.get('author', ''))
-                        if book_data:
+                        if book_data and book_data.get('ratings_count', 0) >= 3:
                             # Extract moods from search API (limit to top 3)
                             moods_data = book_data.get('moods', [])
                             moods_str = ", ".join(moods_data[:3]) if moods_data else "—"
@@ -278,12 +281,23 @@ if st.button("Analyze & Recommend", type="primary"):
                     with st.expander("📖 Top Recommendations", expanded=True):
                         # Display as markdown table
                         if results:
+                            # Always show first 5
                             table_md = "| Book Title | Author | Rating | Genres | Moods | Why it fits |\n"
                             table_md += "| :--- | :--- | :--- | :--- | :--- | :--- |\n"
-                            for r in results:
+                            for r in results[:5]:
                                 title_link = f"[{r['title']}]({r['link']})"
                                 table_md += f"| {title_link} | {r['author']} | {r['rating']} | {r['genres']} | {r['moods']} | {r['reason']} |\n"
                             st.markdown(table_md)
+                            
+                            # Show button for extra recommendations if available
+                            if len(results) > 5:
+                                if st.button("✨ Show Extra Recommendations"):
+                                    extra_md = "| Book Title | Author | Rating | Genres | Moods | Why it fits |\n"
+                                    extra_md += "| :--- | :--- | :--- | :--- | :--- | :--- |\n"
+                                    for r in results[5:]:
+                                        title_link = f"[{r['title']}]({r['link']})"
+                                        extra_md += f"| {title_link} | {r['author']} | {r['rating']} | {r['genres']} | {r['moods']} | {r['reason']} |\n"
+                                    st.markdown(extra_md)
                         else:
                             st.warning("⚠️ None of the AI recommendations were found in Hardcover's database. Try different filters or moods.")
                     
