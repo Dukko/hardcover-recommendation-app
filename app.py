@@ -22,40 +22,79 @@ RECENT_READS_LIMIT = 60
 SEARCH_RESULTS_LIMIT = 5
 
 # --- HELPER: FETCH MODELS ---
+
 @st.cache_data(ttl=3600)
 def get_available_gemini_models(api_key):
     """
-    Fetches the list of models from the Gemini API that support content generation.
-    Filters out 'nano', 'vision', and other non-text-optimized models.
+    Fetches the list of Gemini models.
     """
     try:
         genai.configure(api_key=api_key)
         all_models = list(genai.list_models())
-        
-        # keywords to exclude from the list
         excluded_keywords = ["nano", "vision", "embedding"]
-        
         available_models = []
         for m in all_models:
-            # 1. Must support content generation
             if 'generateContent' in m.supported_generation_methods:
                 name_lower = m.name.lower()
-                # 2. Must not contain excluded keywords
                 if not any(keyword in name_lower for keyword in excluded_keywords):
                     available_models.append(m.name)
-
-        # Sort to put newer versions (higher numbers) at the top
         available_models.sort(reverse=True)
         return available_models
-    except Exception as e:
+    except Exception:
         return []
+
+@st.cache_data(ttl=3600)
+def get_available_openai_models(api_key):
+    """
+    Fetches the list of OpenAI models.
+    Filters for 'gpt' chat models, excluding audio/realtime/legacy.
+    """
+    try:
+        client = OpenAI(api_key=api_key)
+        models = client.models.list()
+        
+        # Only keep chat models
+        # Exclude: 'instruct' (legacy), 'audio', 'realtime', 'tts', 'dall-e', 'whisper'
+        valid_models = []
+        for m in models.data:
+            mid = m.id.lower()
+            if "gpt" in mid and not any(x in mid for x in ["instruct", "realtime", "audio", "voice"]):
+                valid_models.append(m.id)
+        
+        valid_models.sort(reverse=True) # Newer versions usually sort higher
+        return valid_models
+    except Exception:
+        return []
+
+@st.cache_data(ttl=3600)
+def get_available_anthropic_models(api_key):
+    """
+    Fetches the list of Anthropic models.
+    """
+    try:
+        client = Anthropic(api_key=api_key)
+        # Anthropic's list_models endpoint
+        page = client.models.list(limit=20)
+        
+        valid_models = []
+        for m in page.data:
+            mid = m.id.lower()
+            # Filter for claude models, exclude 'instant' (usually older legacy)
+            if "claude" in mid and "instant" not in mid:
+                valid_models.append(m.id)
+                
+        valid_models.sort(reverse=True)
+        return valid_models
+    except Exception:
+        # Fallback list if API listing fails (Anthropic API behavior can vary by tier)
+        return ["claude-3-5-sonnet-20241022", "claude-3-5-haiku-20241022", "claude-3-opus-20240229"]
 
 # --- AI PROVIDERS ---
 
 class GeminiProvider:
     def __init__(self, api_key: str, model_name: str):
         self.api_key = api_key
-        self.model_name = model_name
+        self.model_name = model_name or "models/gemini-1.5-flash"
         genai.configure(api_key=api_key)
     
     def get_recommendations(self, prompt: str) -> tuple[str, str]:
@@ -67,9 +106,9 @@ class GeminiProvider:
             raise Exception(f"Gemini API error ({self.model_name}): {str(e)}")
 
 class OpenAIProvider:
-    def __init__(self, api_key: str):
+    def __init__(self, api_key: str, model_name: str):
         self.client = OpenAI(api_key=api_key)
-        self.model_name = "gpt-4o-mini"
+        self.model_name = model_name or "gpt-4o-mini"
     
     def get_recommendations(self, prompt: str) -> tuple[str, str]:
         try:
@@ -87,9 +126,9 @@ class OpenAIProvider:
             raise Exception(f"OpenAI API error: {str(e)}")
 
 class AnthropicProvider:
-    def __init__(self, api_key: str):
+    def __init__(self, api_key: str, model_name: str):
         self.client = Anthropic(api_key=api_key)
-        self.model_name = "claude-3-5-sonnet-20241022"
+        self.model_name = model_name or "claude-3-5-sonnet-20241022"
     
     def get_recommendations(self, prompt: str) -> tuple[str, str]:
         try:
@@ -106,12 +145,11 @@ class AnthropicProvider:
 
 def get_provider(provider_name, api_key, specific_model=None):
     if provider_name == "Gemini":
-        # Pass the specific model selected by the user
         return GeminiProvider(api_key, specific_model)
     elif provider_name == "OpenAI":
-        return OpenAIProvider(api_key)
+        return OpenAIProvider(api_key, specific_model)
     elif provider_name == "Anthropic":
-        return AnthropicProvider(api_key)
+        return AnthropicProvider(api_key, specific_model)
     
     raise ValueError("Invalid provider selected")
 
@@ -308,32 +346,58 @@ with st.sidebar:
     if anthropic_key:
         available_providers.append("Anthropic")
     
+    selected_model_name = None
+
     if available_providers:
         selected_provider = st.selectbox("Choose AI Provider", available_providers)
         
-        # --- NEW: Model Selector for Gemini ---
-        selected_gemini_model = None
+        # --- DYNAMIC MODEL SELECTOR ---
+        
         if selected_provider == "Gemini":
-            with st.spinner("Fetching available Gemini models..."):
-                gemini_models = get_available_gemini_models(gemini_key)
-                
-            if gemini_models:
-                # Try to find a good default index
-                default_ix = 0
-                for i, m in enumerate(gemini_models):
-                    if "flash" in m and "1.5" in m: # Prefer 1.5 Flash
-                        default_ix = i
-                        break
-                
-                selected_gemini_model = st.selectbox(
-                    "Choose Gemini Model", 
-                    gemini_models, 
-                    index=default_ix
-                )
-            else:
-                st.error("Could not fetch models. Check your API key.")
-                selected_gemini_model = "models/gemini-1.5-flash" # Fallback
-        # --------------------------------------
+            with st.spinner("Fetching Gemini models..."):
+                models = get_available_gemini_models(gemini_key)
+                if models:
+                    # Default: Look for 1.5 Flash
+                    default_ix = 0
+                    for i, m in enumerate(models):
+                        if "flash" in m and "1.5" in m:
+                            default_ix = i
+                            break
+                    selected_model_name = st.selectbox("Model", models, index=default_ix)
+                else:
+                    st.error("Could not fetch models.")
+                    
+        elif selected_provider == "OpenAI":
+            with st.spinner("Fetching OpenAI models..."):
+                models = get_available_openai_models(openai_key)
+                if models:
+                    # Default: Look for gpt-4o
+                    default_ix = 0
+                    for i, m in enumerate(models):
+                        if "gpt-4o" in m and "mini" not in m: # Prefer full 4o
+                            default_ix = i
+                            break
+                    selected_model_name = st.selectbox("Model", models, index=default_ix)
+                else:
+                    st.error("Could not fetch models.")
+
+        elif selected_provider == "Anthropic":
+            with st.spinner("Fetching Anthropic models..."):
+                models = get_available_anthropic_models(anthropic_key)
+                if models:
+                    # Default: Look for sonnet 3.5
+                    default_ix = 0
+                    for i, m in enumerate(models):
+                        if "sonnet" in m and "3-5" in m:
+                            default_ix = i
+                            break
+                    selected_model_name = st.selectbox("Model", models, index=default_ix)
+                else:
+                    st.warning("Could not fetch list (API limitations). Using defaults.")
+                    default_models = ["claude-3-5-sonnet-20241022", "claude-3-5-haiku-20241022"]
+                    selected_model_name = st.selectbox("Model", default_models)
+        
+        # ------------------------------
         
     else:
         st.error("No API keys configured. Please add at least one API key above.")
@@ -383,7 +447,6 @@ if st.button("Analyze & Recommend", type="primary"):
                     "min_rating": f_min_rating
                 }
                 
-                # Initialize AI Provider
                 try:
                     api_keys_map = {
                         "Gemini": gemini_key,
@@ -391,10 +454,12 @@ if st.button("Analyze & Recommend", type="primary"):
                         "Anthropic": anthropic_key,
                     }
                     
-                    # Pass the specific model if Gemini is selected
-                    specific_model = selected_gemini_model if selected_provider == "Gemini" else None
-                    
-                    provider = get_provider(selected_provider, api_keys_map.get(selected_provider), specific_model)
+                    # Instantiate with the SPECIFIC selected model
+                    provider = get_provider(
+                        selected_provider, 
+                        api_keys_map.get(selected_provider), 
+                        selected_model_name
+                    )
                     
                     # Call with positional argument (Streamlit maps this to _provider)
                     recs_text, used_model = get_ai_recommendations(provider, library, filters)
