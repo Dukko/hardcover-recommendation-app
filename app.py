@@ -1,6 +1,7 @@
 import streamlit as st
 import requests
-import google.generativeai as genai
+from google import genai
+from google.genai import types
 import json
 import re
 from datetime import datetime
@@ -26,21 +27,30 @@ SEARCH_RESULTS_LIMIT = 5
 @st.cache_data(ttl=3600)
 def get_available_gemini_models(api_key):
     """
-    Fetches the list of Gemini models.
+    Fetches the list of Gemini models using the new google-genai SDK.
     """
     try:
-        genai.configure(api_key=api_key)
-        all_models = list(genai.list_models())
+        client = genai.Client(api_key=api_key)
+        # The new SDK returns an iterable of model objects
+        all_models = list(client.models.list())
+        
         excluded_keywords = ["nano", "vision", "embedding"]
         available_models = []
+        
         for m in all_models:
+            # Check supported methods (attribute is snake_case in new SDK)
             if 'generateContent' in m.supported_generation_methods:
                 name_lower = m.name.lower()
+                # The new SDK might return 'models/gemini-1.5-flash' or just 'gemini-1.5-flash'
+                # We normalize it for display if needed, but keeping the full ID is safer.
                 if not any(keyword in name_lower for keyword in excluded_keywords):
-                    available_models.append(m.name)
+                    # Ensure we have the 'models/' prefix if the SDK strips it, or keep as is
+                    model_id = m.name if m.name.startswith("models/") else f"models/{m.name}"
+                    available_models.append(model_id)
+                    
         available_models.sort(reverse=True)
         return available_models
-    except Exception:
+    except Exception as e:
         return []
 
 @st.cache_data(ttl=3600)
@@ -53,15 +63,13 @@ def get_available_openai_models(api_key):
         client = OpenAI(api_key=api_key)
         models = client.models.list()
         
-        # Only keep chat models
-        # Exclude: 'instruct' (legacy), 'audio', 'realtime', 'tts', 'dall-e', 'whisper'
         valid_models = []
         for m in models.data:
             mid = m.id.lower()
             if "gpt" in mid and not any(x in mid for x in ["instruct", "realtime", "audio", "voice"]):
                 valid_models.append(m.id)
         
-        valid_models.sort(reverse=True) # Newer versions usually sort higher
+        valid_models.sort(reverse=True)
         return valid_models
     except Exception:
         return []
@@ -73,20 +81,17 @@ def get_available_anthropic_models(api_key):
     """
     try:
         client = Anthropic(api_key=api_key)
-        # Anthropic's list_models endpoint
         page = client.models.list(limit=20)
         
         valid_models = []
         for m in page.data:
             mid = m.id.lower()
-            # Filter for claude models, exclude 'instant' (usually older legacy)
             if "claude" in mid and "instant" not in mid:
                 valid_models.append(m.id)
                 
         valid_models.sort(reverse=True)
         return valid_models
     except Exception:
-        # Fallback list if API listing fails (Anthropic API behavior can vary by tier)
         return ["claude-3-5-sonnet-20241022", "claude-3-5-haiku-20241022", "claude-3-opus-20240229"]
 
 # --- AI PROVIDERS ---
@@ -94,13 +99,22 @@ def get_available_anthropic_models(api_key):
 class GeminiProvider:
     def __init__(self, api_key: str, model_name: str):
         self.api_key = api_key
-        self.model_name = model_name or "models/gemini-1.5-flash"
-        genai.configure(api_key=api_key)
+        # Ensure model name has 'models/' prefix if missing, though new SDK is often flexible
+        clean_name = model_name or "gemini-1.5-flash"
+        if "/" not in clean_name:
+            clean_name = f"models/{clean_name}"
+        self.model_name = clean_name
+        
+        # New Client Initialization
+        self.client = genai.Client(api_key=api_key)
     
     def get_recommendations(self, prompt: str) -> tuple[str, str]:
         try:
-            model = genai.GenerativeModel(self.model_name)
-            response = model.generate_content(prompt)
+            # New generate_content syntax
+            response = self.client.models.generate_content(
+                model=self.model_name,
+                contents=prompt
+            )
             return response.text, self.model_name
         except Exception as e:
             raise Exception(f"Gemini API error ({self.model_name}): {str(e)}")
