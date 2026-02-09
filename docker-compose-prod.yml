@@ -10,7 +10,8 @@ services:
      
     environment:
       # Simple env vars that entrypoint.sh will read
-
+      - HARDCOVER_TOKEN=${HARDCOVER_TOKEN}
+      - GEMINI_KEY=${GEMINI_KEY}
       - OPENAI_KEY=${OPENAI_KEY}
       - ANTHROPIC_KEY=${ANTHROPIC_KEY}
     
