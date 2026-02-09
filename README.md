@@ -4,9 +4,8 @@
 
 Hardcover AI Librarian is a local web application that connects to your [Hardcover.app](https://hardcover.app) account, analyzes your reading patterns (ratings, genres, moods), and uses advanced Large Language Models (LLMs) to recommend books you will actually love.
 
-![App Screenshot](https://raw.githubusercontent.com/dukkokun/hardcover-ai-librarian/main/screenshot-1.png)
-![App Screenshot](https://raw.githubusercontent.com/dukkokun/hardcover-ai-librarian/main/screenshot-2.png)
-*(Note: Replace the link above with a screenshot of your running app)*
+![App Screenshot](https://raw.githubusercontent.com/dukkokun/hardcover-recommendation-app/main/screenshot-1.png)
+![App Screenshot](https://raw.githubusercontent.com/dukkokun/hardcover-recommendation-app/main/screenshot-2.png)
 
 ## ✨ Features
 
