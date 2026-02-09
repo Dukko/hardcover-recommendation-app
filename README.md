@@ -31,3 +31,6 @@ Mount your local .streamlit folder containing secrets.toml.
 ```
 docker run -p 8501:8501 -v $(pwd)/.streamlit:/app/.streamlit dukkokun/hardcover-ai
 ```
+
+### Option 4: Dockercompose 
+Use the docker-compose.yml provided
