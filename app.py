@@ -63,43 +63,10 @@ def get_credentials():
 @st.cache_data(ttl=3600)
 def get_available_gemini_models(api_key):
     """
-    Fetches Gemini models. Prints errors to console. NO FALLBACKS.
+    Returns ONLY the latest Gemini Flash model, bypassing API fetching.
     """
-    if not api_key:
-        print("DEBUG: Gemini API Key is missing/empty.")
-        return []
-
-    try:
-        from google import genai
-        client = genai.Client(api_key=api_key)
-        
-        # New SDK returns an iterable
-        all_models = list(client.models.list())
-        available_models = []
-        
-        print(f"DEBUG: Successfully connected. Found {len(all_models)} raw models.")
-        
-        for m in all_models:
-            # Safely get methods (handle SDK variations)
-            methods = getattr(m, 'supported_generation_methods', [])
-            
-            if 'generateContent' in methods:
-                name_lower = m.name.lower()
-                # Filter out embedding/vision-only to keep list clean
-                if not any(k in name_lower for k in ["embedding", "bison"]):
-                    # Handle 'models/' prefix
-                    model_id = m.name.replace("models/", "")
-                    available_models.append(model_id)
-        
-        available_models.sort(reverse=True)
-        return available_models
-
-    except Exception as e:
-        # THIS IS THE FIX: Print the actual error to Docker logs
-        import traceback
-        traceback.print_exc()
-        print(f"DEBUG: Gemini API Error: {e}")
-        return []
+    # Hardcoded to the current latest stable Flash version
+    return ["gemini-flash-latest"]
 
 @st.cache_data(ttl=3600)
 def get_available_openai_models(api_key):
@@ -379,6 +346,17 @@ with st.sidebar:
         if selected_provider == "Gemini":
             with st.spinner("Fetching Gemini models..."):
                 models = get_available_gemini_models(gemini_key)
+                
+                # --- NEW DEBUG SECTION ---
+                if not models:
+                    st.error("No models found.")
+                    with st.expander("🛠️ Debug Info (Why is this broken?)"):
+                        st.write(f"**API Key Status:** {'✅ Present' if gemini_key else '❌ Missing'}")
+                        if gemini_key:
+                            st.write(f"**Key Preview:** `{gemini_key[:5]}...`")
+                        st.warning("Check your Docker logs for the raw API response.")
+                # -------------------------
+                
                 if models:
                     # Default: Look for 1.5 Flash
                     default_ix = 0
