@@ -38,11 +38,12 @@ Create a docker-compose.yml file for a persistent setup: [Compose file](https://
 Edit the variables with your keys.
 
 Run it:
-```docker-compose up -d
+```
+docker-compose up -d
 ```
 
 
-### Option 2: The One-Liner
+### Option without docker-compose
 Run this command in your terminal. Replace `YOUR_TOKEN` with your actual keys. You can omit the AI keys you aren't using.
 
 ```bash
