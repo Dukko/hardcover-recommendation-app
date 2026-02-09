@@ -22,35 +22,83 @@ MAX_WORKERS = 5
 RECENT_READS_LIMIT = 60
 SEARCH_RESULTS_LIMIT = 5
 
+def get_credentials():
+    # 1. Try to load from Secrets (Env vars map to st.secrets["connections"])
+    try:
+        secrets = st.secrets.get("connections", {})
+    except Exception:
+        secrets = {}
+
+    # 2. Initialize Session State (Prioritize Secrets over defaults)
+    if "hardcover_token" not in st.session_state:
+        st.session_state.hardcover_token = secrets.get("hardcover_token", "")
+    if "gemini_key" not in st.session_state:
+        st.session_state.gemini_key = secrets.get("gemini_key", "")
+    if "openai_key" not in st.session_state:
+        st.session_state.openai_key = secrets.get("openai_key", "")
+    if "anthropic_key" not in st.session_state:
+        st.session_state.anthropic_key = secrets.get("anthropic_key", "")
+
+    # 3. Determine if we need to expand the sidebar
+    # Only expand if CRITICAL keys are missing
+    has_hc = bool(st.session_state.hardcover_token)
+    has_ai = bool(st.session_state.gemini_key or st.session_state.openai_key or st.session_state.anthropic_key)
+    should_expand = not (has_hc and has_ai)
+
+    with st.sidebar.expander("🔐 API Credentials", expanded=should_expand):
+        st.session_state.hardcover_token = st.text_input("Hardcover Token", type="password", value=st.session_state.hardcover_token)
+        st.session_state.gemini_key = st.text_input("Gemini API Key (optional)", type="password", value=st.session_state.gemini_key)
+        st.session_state.openai_key = st.text_input("OpenAI API Key (optional)", type="password", value=st.session_state.openai_key)
+        st.session_state.anthropic_key = st.text_input("Anthropic API Key (optional)", type="password", value=st.session_state.anthropic_key)
+
+    # 4. Auto-fix 'Bearer' prefix
+    final_hc = st.session_state.hardcover_token
+    if final_hc and not final_hc.startswith("Bearer "):
+        final_hc = f"Bearer {final_hc}"
+
+    return final_hc, st.session_state.gemini_key, st.session_state.openai_key, st.session_state.anthropic_key
+
 # --- HELPER: FETCH MODELS ---
 
 @st.cache_data(ttl=3600)
 def get_available_gemini_models(api_key):
     """
-    Fetches the list of Gemini models using the new google-genai SDK.
+    Fetches Gemini models. Prints errors to console. NO FALLBACKS.
     """
+    if not api_key:
+        print("DEBUG: Gemini API Key is missing/empty.")
+        return []
+
     try:
+        from google import genai
         client = genai.Client(api_key=api_key)
-        # The new SDK returns an iterable of model objects
-        all_models = list(client.models.list())
         
-        excluded_keywords = ["nano", "vision", "embedding"]
+        # New SDK returns an iterable
+        all_models = list(client.models.list())
         available_models = []
         
+        print(f"DEBUG: Successfully connected. Found {len(all_models)} raw models.")
+        
         for m in all_models:
-            # Check supported methods (attribute is snake_case in new SDK)
-            if 'generateContent' in m.supported_generation_methods:
+            # Safely get methods (handle SDK variations)
+            methods = getattr(m, 'supported_generation_methods', [])
+            
+            if 'generateContent' in methods:
                 name_lower = m.name.lower()
-                # The new SDK might return 'models/gemini-1.5-flash' or just 'gemini-1.5-flash'
-                # We normalize it for display if needed, but keeping the full ID is safer.
-                if not any(keyword in name_lower for keyword in excluded_keywords):
-                    # Ensure we have the 'models/' prefix if the SDK strips it, or keep as is
-                    model_id = m.name if m.name.startswith("models/") else f"models/{m.name}"
+                # Filter out embedding/vision-only to keep list clean
+                if not any(k in name_lower for k in ["embedding", "bison"]):
+                    # Handle 'models/' prefix
+                    model_id = m.name.replace("models/", "")
                     available_models.append(model_id)
-                    
+        
         available_models.sort(reverse=True)
         return available_models
+
     except Exception as e:
+        # THIS IS THE FIX: Print the actual error to Docker logs
+        import traceback
+        traceback.print_exc()
+        print(f"DEBUG: Gemini API Error: {e}")
         return []
 
 @st.cache_data(ttl=3600)
@@ -168,47 +216,6 @@ def get_provider(provider_name, api_key, specific_model=None):
     raise ValueError("Invalid provider selected")
 
 # --- HELPER FUNCTIONS ---
-
-def get_credentials():
-    # 1. Load from the secrets.toml file (which entrypoint.sh just created)
-    # We use st.secrets because the file is guaranteed to exist now.
-    try:
-        secrets = st.secrets.get("connections", {})
-    except Exception:
-        secrets = {}
-
-    # 2. Prioritize Env/File secrets over defaults
-    hc_token = secrets.get("hardcover_token", "") or st.session_state.get("hardcover_token", "")
-    gem_key = secrets.get("gemini_key", "") or st.session_state.get("gemini_key", "")
-    openai_key = secrets.get("openai_key", "") or st.session_state.get("openai_key", "")
-    anthropic_key = secrets.get("anthropic_key", "") or st.session_state.get("anthropic_key", "")
-
-    # 3. Store in Session State
-    st.session_state.hardcover_token = hc_token
-    st.session_state.gemini_key = gem_key
-    st.session_state.openai_key = openai_key
-    st.session_state.anthropic_key = anthropic_key
-
-    # 4. Only show sidebar if CRITICAL keys are missing
-    # (Hardcover is required; at least one AI key is required)
-    has_hc = bool(hc_token)
-    has_ai = bool(gem_key or openai_key or anthropic_key)
-    
-    # Auto-expand if we are missing essentials
-    should_expand = not (has_hc and has_ai)
-
-    with st.sidebar.expander("🔐 API Credentials", expanded=should_expand):
-        st.session_state.hardcover_token = st.text_input("Hardcover Token", type="password", value=hc_token)
-        st.session_state.gemini_key = st.text_input("Gemini API Key", type="password", value=gem_key)
-        st.session_state.openai_key = st.text_input("OpenAI API Key", type="password", value=openai_key)
-        st.session_state.anthropic_key = st.text_input("Anthropic API Key", type="password", value=anthropic_key)
-
-    # 5. Fix 'Bearer' prefix
-    final_hc = st.session_state.hardcover_token
-    if final_hc and not final_hc.startswith("Bearer "):
-        final_hc = f"Bearer {final_hc}"
-
-    return final_hc, st.session_state.gemini_key, st.session_state.openai_key, st.session_state.anthropic_key
 
 @st.cache_data(ttl=1800)
 def fetch_enhanced_library(token):
