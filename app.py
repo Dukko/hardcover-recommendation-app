@@ -170,39 +170,43 @@ def get_provider(provider_name, api_key, specific_model=None):
 # --- HELPER FUNCTIONS ---
 
 def get_credentials():
-    if "hardcover_token" not in st.session_state:
-        st.session_state.hardcover_token = ""
-    if "gemini_key" not in st.session_state:
-        st.session_state.gemini_key = ""
-    if "openai_key" not in st.session_state:
-        st.session_state.openai_key = ""
-    if "anthropic_key" not in st.session_state:
-        st.session_state.anthropic_key = ""
+    # 1. ATTEMPT TO LOAD FROM SECRETS (File or Env Var)
+    # Streamlit maps env vars like STREAMLIT_SECRETS_CONNECTIONS_OPENAI_KEY to st.secrets
+    secrets = st.secrets.get("connections", {})
+    
+    hc_token = secrets.get("hardcover_token", "")
+    gem_key = secrets.get("gemini_key", "")
+    openai_key = secrets.get("openai_key", "")
+    anthropic_key = secrets.get("anthropic_key", "")
 
-    with st.sidebar.expander("🔐 API Credentials - Your API keys are private and secure", expanded=True):
-        st.session_state.hardcover_token = st.text_input(
-            "Hardcover Token",
-            type="password",
-            value=st.session_state.hardcover_token,
-        )
-        st.session_state.gemini_key = st.text_input(
-            "Gemini API Key (optional)",
-            type="password",
-            value=st.session_state.gemini_key,
-        )
-        st.session_state.openai_key = st.text_input(
-            "OpenAI API Key (optional)",
-            type="password",
-            value=st.session_state.openai_key,
-        )
-        st.session_state.anthropic_key = st.text_input(
-            "Anthropic API Key (optional)",
-            type="password",
-            value=st.session_state.anthropic_key,
-        )
+    # 2. UI FALLBACK (If specific key is missing, ask for it)
+    # We use session_state to persist inputs if the user types them
+    if "hardcover_token" not in st.session_state: st.session_state.hardcover_token = hc_token
+    if "gemini_key" not in st.session_state: st.session_state.gemini_key = gem_key
+    if "openai_key" not in st.session_state: st.session_state.openai_key = openai_key
+    if "anthropic_key" not in st.session_state: st.session_state.anthropic_key = anthropic_key
+
+    # Only show expander if ANY key is missing
+    if not (st.session_state.hardcover_token and (st.session_state.gemini_key or st.session_state.openai_key or st.session_state.anthropic_key)):
+        with st.sidebar.expander("🔐 API Credentials", expanded=True):
+            if not st.session_state.hardcover_token:
+                st.session_state.hardcover_token = st.text_input("Hardcover Token", type="password")
+            
+            # Optional Providers
+            if not st.session_state.gemini_key:
+                st.session_state.gemini_key = st.text_input("Gemini API Key", type="password")
+            if not st.session_state.openai_key:
+                st.session_state.openai_key = st.text_input("OpenAI API Key", type="password")
+            if not st.session_state.anthropic_key:
+                st.session_state.anthropic_key = st.text_input("Anthropic API Key", type="password")
+
+    # 3. AUTO-FIX: Ensure 'Bearer ' is present for Hardcover
+    final_hc_token = st.session_state.hardcover_token
+    if final_hc_token and not final_hc_token.startswith("Bearer "):
+        final_hc_token = f"Bearer {final_hc_token}"
 
     return (
-        st.session_state.hardcover_token,
+        final_hc_token,
         st.session_state.gemini_key,
         st.session_state.openai_key,
         st.session_state.anthropic_key,
