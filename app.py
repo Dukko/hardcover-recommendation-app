@@ -9,9 +9,9 @@ from openai import OpenAI
 from anthropic import Anthropic
 import concurrent.futures
 
-# 1. PAGE CONFIG MUST BE FIRST
+# page config
 st.set_page_config(
-    page_title="Hardcover AI (Dracula Edition)", 
+    page_title="Hardcover AI Librarian", 
     page_icon="🧛", 
     layout="wide",
     initial_sidebar_state="expanded"
@@ -179,7 +179,7 @@ def get_credentials():
     if "anthropic_key" not in st.session_state:
         st.session_state.anthropic_key = ""
 
-    with st.sidebar.expander("🔐 API Credentials", expanded=True):
+    with st.sidebar.expander("🔐 API Credentials - Your API keys are private and secure", expanded=True):
         st.session_state.hardcover_token = st.text_input(
             "Hardcover Token",
             type="password",

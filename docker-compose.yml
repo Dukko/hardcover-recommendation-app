@@ -1,0 +1,31 @@
+version: '3.8'
+
+services:
+  hardcover-ai-librarian:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+      
+    ports:
+      - "8501:8501"
+    
+    # Choose how to get the secrets and uncomment either options:
+
+    # 1. OPTIONAL: Secrets File
+    # We use 'ro' (read-only) to prevent the app from modifying it
+    
+    #volumes:
+    #  - ./.streamlit/secrets.toml:/app/.streamlit/secrets.toml:ro
+
+    # 2. OPTIONAL: Environment Variables
+    # Mapping them like this allows you to pass them from your shell
+    
+    #environment:
+    #  - STREAMLIT_SECRETS_CONNECTIONS_HARDCOVER_TOKEN=${HARDCOVER_TOKEN}
+    #  - STREAMLIT_SECRETS_CONNECTIONS_GEMINI_KEY=${GEMINI_KEY}
+    
+    # Restart automatically if it crashes
+    restart: unless-stopped
+    
+    # Clean container name
+    container_name: hardcover-ai-librarian
