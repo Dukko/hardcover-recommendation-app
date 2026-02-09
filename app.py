@@ -170,54 +170,45 @@ def get_provider(provider_name, api_key, specific_model=None):
 # --- HELPER FUNCTIONS ---
 
 def get_credentials():
-    # 1. ATTEMPT TO LOAD FROM SECRETS (File or Env Var)
+    # 1. Load from the secrets.toml file (which entrypoint.sh just created)
+    # We use st.secrets because the file is guaranteed to exist now.
     try:
-        # Streamlit throws StreamlitSecretNotFoundError if no assets exist.
-        # We catch generic Exception to be safe across versions.
         secrets = st.secrets.get("connections", {})
     except Exception:
-        # If crash, assume no secrets found and continue to UI fallback
         secrets = {}
+
+    # 2. Prioritize Env/File secrets over defaults
+    hc_token = secrets.get("hardcover_token", "") or st.session_state.get("hardcover_token", "")
+    gem_key = secrets.get("gemini_key", "") or st.session_state.get("gemini_key", "")
+    openai_key = secrets.get("openai_key", "") or st.session_state.get("openai_key", "")
+    anthropic_key = secrets.get("anthropic_key", "") or st.session_state.get("anthropic_key", "")
+
+    # 3. Store in Session State
+    st.session_state.hardcover_token = hc_token
+    st.session_state.gemini_key = gem_key
+    st.session_state.openai_key = openai_key
+    st.session_state.anthropic_key = anthropic_key
+
+    # 4. Only show sidebar if CRITICAL keys are missing
+    # (Hardcover is required; at least one AI key is required)
+    has_hc = bool(hc_token)
+    has_ai = bool(gem_key or openai_key or anthropic_key)
     
-    hc_token = secrets.get("hardcover_token", "")
-    gem_key = secrets.get("gemini_key", "")
-    openai_key = secrets.get("openai_key", "")
-    anthropic_key = secrets.get("anthropic_key", "")
+    # Auto-expand if we are missing essentials
+    should_expand = not (has_hc and has_ai)
 
-    # 2. UI FALLBACK (If specific key is missing, ask for it)
-    if "hardcover_token" not in st.session_state: st.session_state.hardcover_token = hc_token
-    if "gemini_key" not in st.session_state: st.session_state.gemini_key = gem_key
-    if "openai_key" not in st.session_state: st.session_state.openai_key = openai_key
-    if "anthropic_key" not in st.session_state: st.session_state.anthropic_key = anthropic_key
+    with st.sidebar.expander("🔐 API Credentials", expanded=should_expand):
+        st.session_state.hardcover_token = st.text_input("Hardcover Token", type="password", value=hc_token)
+        st.session_state.gemini_key = st.text_input("Gemini API Key", type="password", value=gem_key)
+        st.session_state.openai_key = st.text_input("OpenAI API Key", type="password", value=openai_key)
+        st.session_state.anthropic_key = st.text_input("Anthropic API Key", type="password", value=anthropic_key)
 
-    # Check if we need to show the sidebar (i.e. if critical keys are missing)
-    # Hardcover is mandatory. At least one AI provider is mandatory.
-    has_hc = bool(st.session_state.hardcover_token)
-    has_ai = bool(st.session_state.gemini_key or st.session_state.openai_key or st.session_state.anthropic_key)
+    # 5. Fix 'Bearer' prefix
+    final_hc = st.session_state.hardcover_token
+    if final_hc and not final_hc.startswith("Bearer "):
+        final_hc = f"Bearer {final_hc}"
 
-    if not (has_hc and has_ai):
-        with st.sidebar.expander("🔐 API Credentials", expanded=True):
-            if not st.session_state.hardcover_token:
-                st.session_state.hardcover_token = st.text_input("Hardcover Token", type="password")
-            
-            if not st.session_state.gemini_key:
-                st.session_state.gemini_key = st.text_input("Gemini API Key", type="password")
-            if not st.session_state.openai_key:
-                st.session_state.openai_key = st.text_input("OpenAI API Key", type="password")
-            if not st.session_state.anthropic_key:
-                st.session_state.anthropic_key = st.text_input("Anthropic API Key", type="password")
-
-    # 3. AUTO-FIX: Ensure 'Bearer ' is present for Hardcover
-    final_hc_token = st.session_state.hardcover_token
-    if final_hc_token and not final_hc_token.startswith("Bearer "):
-        final_hc_token = f"Bearer {final_hc_token}"
-
-    return (
-        final_hc_token,
-        st.session_state.gemini_key,
-        st.session_state.openai_key,
-        st.session_state.anthropic_key,
-    )
+    return final_hc, st.session_state.gemini_key, st.session_state.openai_key, st.session_state.anthropic_key
 
 @st.cache_data(ttl=1800)
 def fetch_enhanced_library(token):
