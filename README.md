@@ -2,7 +2,7 @@
 
 **Your personal literary curator, powered by Artificial Intelligence and your actual reading history.**
 
-Hardcover AI Librarian is a local web application that connects to your [Hardcover.app](https://hardcover.app) account, analyzes your reading patterns (ratings, genres, moods), and uses advanced Large Language Models (LLMs) to recommend books you will actually love.
+Hardcover AI Librarian is a local web application that connects to your [Hardcover.app](https://hardcover.app) account, analyzes your reading patterns (ratings, genres, moods), and uses advanced Large Language Models (LLMs) to recommend books you will actually love. It's a lightweight FastAPI + HTMX app (no Node/JS build step) with a live progress stream while it works.
 
 ![App Screenshot](https://github.com/Dukko/hardcover-recommendation-app/blob/main/screenshot-1.png?raw=true)
 ![App Screenshot](https://github.com/Dukko/hardcover-recommendation-app/blob/main/screenshot-2.png?raw=true)
@@ -60,8 +60,6 @@ Note: The app automatically handles the Bearer  prefix for Hardcover, so you can
 ---
 ## ⚙️ Environment Variables
 
-The container uses a custom entrypoint script to map standard environment variables into Streamlit's secrets system.
-
 - HARDCOVER_TOKEN	Required. Your personal API token from Hardcover.app.
 
 - GEMINI_KEY	Optional. Google AI Studio API Key.
@@ -69,6 +67,10 @@ The container uses a custom entrypoint script to map standard environment variab
 - OPENAI_KEY	Optional. OpenAI API Key.
 
 - ANTHROPIC_KEY	Optional. Anthropic Claude API Key.
+
+- SESSION_SECRET	Optional. Signs the session cookie used to remember keys you enter in the browser (as opposed to the env vars above). Set this to a fixed random string if you want browser-entered keys to survive a container restart; otherwise a new one is generated each boot and browser-entered keys are simply forgotten.
+
+Any of the four key variables can also be left unset and entered directly in the browser's Settings panel instead — they're editable there regardless of how they were originally provided.
 
 ---
 

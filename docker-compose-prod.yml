@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   hardcover-ai-librarian:
 
@@ -9,11 +7,14 @@ services:
       - "8501:8501"
      
     environment:
-      # Simple env vars that entrypoint.sh will read
       - HARDCOVER_TOKEN=${HARDCOVER_TOKEN}
       - GEMINI_KEY=${GEMINI_KEY}
       - OPENAI_KEY=${OPENAI_KEY}
       - ANTHROPIC_KEY=${ANTHROPIC_KEY}
+      # Optional: set this so keys entered in the browser survive a container restart.
+      # If unset, a random secret is generated at each boot (browser-entered keys
+      # are simply forgotten on restart; env-var keys above are unaffected either way).
+      - SESSION_SECRET=${SESSION_SECRET:-}
     
     # Restart automatically if it crashes
     restart: unless-stopped

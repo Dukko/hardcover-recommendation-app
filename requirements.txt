@@ -1,5 +1,10 @@
-streamlit
-requests
+fastapi
+uvicorn[standard]
+httpx
+jinja2
+python-multipart
+itsdangerous
+pydantic-settings
 google-genai
 openai
 anthropic

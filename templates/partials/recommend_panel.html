@@ -1,0 +1,10 @@
+<div id="recommend-live" hx-ext="sse" sse-connect="/recommend/stream?{{ query_string }}" sse-close="done">
+  <div id="progress-bar-wrap" class="progress-bar-wrap" sse-swap="result,error" hx-swap="delete">
+    <div class="progress-bar-fill"></div>
+  </div>
+  <div id="progress-log" class="progress-log" sse-swap="progress" hx-swap="beforeend">
+    <p>🪄 Doing my AI Librarian magic...</p>
+  </div>
+  <div id="recommend-error" sse-swap="error" hx-swap="innerHTML"></div>
+  <div id="recommend-result" sse-swap="result" hx-swap="innerHTML"></div>
+</div>

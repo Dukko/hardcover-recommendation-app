@@ -1,0 +1,9 @@
+<select id="model-select" name="model">
+  {% if models %}
+    {% for m in models %}
+      <option value="{{ m }}" {% if loop.index0 == default_model_index %}selected{% endif %}>{{ m }}</option>
+    {% endfor %}
+  {% else %}
+    <option value="">No models found</option>
+  {% endif %}
+</select>

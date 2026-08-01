@@ -1,0 +1,37 @@
+<div id="recommend-result-inner">
+  <p class="success">✅ Generated using <strong>{{ used_model }}</strong> based on {{ book_count }} read books.</p>
+
+  {% if results %}
+    {% macro card(r) %}
+      <article class="book-card">
+        <div class="book-card-header">
+          <h3><a href="{{ r.link }}" target="_blank" rel="noopener">{{ r.title }}</a></h3>
+          {% if r.rating != 'N/A' %}<span class="rating-badge">★ {{ r.rating }}</span>{% endif %}
+        </div>
+        <p class="author">{{ r.author }}</p>
+        {% if r.genres or r.moods %}
+        <div class="chips">
+          {% for g in r.genres %}<span class="chip chip-genre">{{ g }}</span>{% endfor %}
+          {% for m in r.moods %}<span class="chip chip-mood">{{ m }}</span>{% endfor %}
+        </div>
+        {% endif %}
+        <p class="reason">{{ r.reason }}</p>
+      </article>
+    {% endmacro %}
+
+    <div class="results-grid">
+      {% for r in results[:5] %}{{ card(r) }}{% endfor %}
+    </div>
+
+    {% if results|length > 5 %}
+      <details class="extra-recs">
+        <summary>✨ Show extra recommendations</summary>
+        <div class="results-grid">
+          {% for r in results[5:] %}{{ card(r) }}{% endfor %}
+        </div>
+      </details>
+    {% endif %}
+  {% else %}
+    <p class="warning">⚠️ None of the AI recommendations were found in Hardcover's database.</p>
+  {% endif %}
+</div>

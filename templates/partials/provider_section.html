@@ -1,0 +1,23 @@
+<div id="provider-section">
+  {% if available_providers %}
+    <label>AI Provider
+      <select
+        id="provider"
+        name="provider"
+        hx-get="/models"
+        hx-target="#model-select"
+        hx-swap="outerHTML"
+        hx-trigger="change"
+      >
+        {% for p in available_providers %}
+          <option value="{{ p }}" {% if p == selected_provider %}selected{% endif %}>{{ p }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>Model
+      {% include "partials/model_select.html" %}
+    </label>
+  {% else %}
+    <p class="error">⚠️ No API keys configured. Add at least one above.</p>
+  {% endif %}
+</div>

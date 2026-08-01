@@ -1,0 +1,8 @@
+{% if suggestions %}
+  {% for s in suggestions %}
+    <button type="button" class="autocomplete-item" data-title="{{ s.title }}" onclick="window.addSkewBook(this)">
+      <strong>{{ s.title }}</strong>
+      {% if s.author %}<span class="ac-author">{{ s.author }}</span>{% endif %}
+    </button>
+  {% endfor %}
+{% endif %}

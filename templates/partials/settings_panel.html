@@ -1,0 +1,22 @@
+<div id="settings-panel">
+  <form id="credentials-form" hx-post="/credentials" hx-target="#settings-panel" hx-swap="outerHTML">
+    <details {% if not (creds.hardcover_token and available_providers) %}open{% endif %}>
+      <summary>🔐 API Credentials</summary>
+      <label>Hardcover Token
+        <input type="password" name="hardcover_token" value="{{ creds.hardcover_token }}" autocomplete="off" />
+      </label>
+      <label>Gemini Key (optional)
+        <input type="password" name="gemini_key" value="{{ creds.gemini_key }}" autocomplete="off" />
+      </label>
+      <label>OpenAI Key (optional)
+        <input type="password" name="openai_key" value="{{ creds.openai_key }}" autocomplete="off" />
+      </label>
+      <label>Anthropic Key (optional)
+        <input type="password" name="anthropic_key" value="{{ creds.anthropic_key }}" autocomplete="off" />
+      </label>
+      <button type="submit">💾 Save Keys</button>
+    </details>
+  </form>
+
+  {% include "partials/provider_section.html" %}
+</div>
