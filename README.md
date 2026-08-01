@@ -1,5 +1,7 @@
 # 📚 Hardcover AI Librarian
 
+[![Build and Push Docker Image](https://github.com/Dukko/hardcover-recommendation-app/actions/workflows/docker-build.yml/badge.svg)](https://github.com/Dukko/hardcover-recommendation-app/actions/workflows/docker-build.yml)
+
 **Your personal literary curator, powered by Artificial Intelligence and your actual reading history.**
 
 Hardcover AI Librarian is a self-hosted web app that connects to your [Hardcover.app](https://hardcover.app) account, analyzes your reading patterns (ratings, genres, moods), and uses advanced Large Language Models (LLMs) to recommend books you will actually love.
@@ -37,13 +39,7 @@ Before running the app, you need API keys.
 
 ## 🚀 Quick Start (Docker)
 
-Build the image locally from this repo (there isn't a published image for the current FastAPI version yet):
-
-```bash
-docker build -t hardcover-ai-librarian:latest .
-```
-
-Then either run it directly:
+A [GitHub Actions workflow](.github/workflows/docker-build.yml) rebuilds and publishes `dukkokun/hardcover-ai-librarian:latest` on every push to `main`, so the easiest path is to just pull it:
 
 ```bash
 docker run -d \
@@ -51,16 +47,18 @@ docker run -d \
   -e HARDCOVER_TOKEN="your_hardcover_token_here" \
   -e GEMINI_KEY="your_google_api_key_here" \
   --name hardcover-librarian \
-  hardcover-ai-librarian:latest
+  dukkokun/hardcover-ai-librarian:latest
 ```
 
 ...or use Compose for a persistent setup — copy [`docker-compose-prod.yml`](./docker-compose-prod.yml), fill in your keys, and run:
 
 ```bash
-docker compose -f docker-compose-prod.yml up -d --build
+docker compose -f docker-compose-prod.yml up -d
 ```
 
 Open your browser to: http://localhost:8501
+
+Prefer to build from source instead of pulling the published image? `docker build -t hardcover-ai-librarian:latest .` from the repo root, then swap that tag into the command/compose file above.
 
 Note: The app automatically handles the `Bearer ` prefix for Hardcover, so you can paste the raw token or the full string.
 
@@ -107,7 +105,7 @@ The app tries to auto-correct this, but ensure your `HARDCOVER_TOKEN` looks like
 
 **"Container crashes immediately"**
 
-Rebuild the image to make sure you're running the current code: `docker compose -f docker-compose-prod.yml up -d --build`.
+Make sure you're on the current image: `docker pull dukkokun/hardcover-ai-librarian:latest` (or `docker compose -f docker-compose-prod.yml pull && docker compose -f docker-compose-prod.yml up -d`).
 
 **Skew search / autocomplete shows nothing**
 
