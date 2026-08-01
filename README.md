@@ -2,18 +2,22 @@
 
 **Your personal literary curator, powered by Artificial Intelligence and your actual reading history.**
 
-Hardcover AI Librarian is a local web application that connects to your [Hardcover.app](https://hardcover.app) account, analyzes your reading patterns (ratings, genres, moods), and uses advanced Large Language Models (LLMs) to recommend books you will actually love. It's a lightweight FastAPI + HTMX app (no Node/JS build step) with a live progress stream while it works.
+Hardcover AI Librarian is a self-hosted web app that connects to your [Hardcover.app](https://hardcover.app) account, analyzes your reading patterns (ratings, genres, moods), and uses advanced Large Language Models (LLMs) to recommend books you will actually love.
 
-![App Screenshot](https://github.com/Dukko/hardcover-recommendation-app/blob/main/screenshot-1.png?raw=true)
-![App Screenshot](https://github.com/Dukko/hardcover-recommendation-app/blob/main/screenshot-2.png?raw=true)
+It's a lightweight **FastAPI + HTMX** app (no Node/JS build step, no client framework) with a Catppuccin Mocha theme and a live progress stream while it works.
+
+![App Screenshot](https://github.com/Dukko/hardcover-recommendation-app/blob/main/screenshot-1.jpg?raw=true)
+![App Screenshot](https://github.com/Dukko/hardcover-recommendation-app/blob/main/screenshot-2.jpg?raw=true)
 
 ## ✨ Features
 
 * **Deep Library Analysis:** Fetches your "Read" books from Hardcover to understand your taste profile.
-* **Hybrid Intelligence:** Combines your strict filters (Genre, Page Count, Year) with AI reasoning (Mood, Vibe, Writing Style).
-* **Multi-Provider Support:** Choose your brain! Supports **Google Gemini** (Free tier available), **OpenAI (GPT-4o)**, and **Anthropic (Claude 3.5)**.
+* **Hybrid Intelligence:** Combines your strict filters (genre, page count, publication year, min rating — all slider-based) with AI reasoning (mood, vibe, writing style).
+* **Skew Toward:** Search your Hardcover library and pin up to 3 books to nudge recommendations toward a similar vibe, backed by live autocomplete against Hardcover's catalog.
+* **Multi-Provider Support:** Choose your brain! Supports **Google Gemini** (free tier available), **OpenAI**, and **Anthropic**, with the model dropdown populated live from each provider's API.
 * **Real-Time Verification:** Every recommendation is cross-referenced against Hardcover's database to ensure the book exists and has valid metadata.
-* **Privacy First:** Your API keys and data never leave your container. Keys are used strictly for API calls and are not stored permanently.
+* **Live Progress:** A Server-Sent Events stream shows each step (fetching your library, thinking, verifying) instead of a single blocking spinner — useful if your library runs into the hundreds of books.
+* **Privacy First:** Your API keys and data never leave your container. Keys are used strictly for API calls; browser-entered keys live only in a signed session cookie, never on disk.
 
 ---
 
@@ -33,18 +37,13 @@ Before running the app, you need API keys.
 
 ## 🚀 Quick Start (Docker)
 
-Create a docker-compose.yml file for a persistent setup: [Compose file](https://github.com/Dukko/hardcover-recommendation-app/blob/main/docker-compose-prod.yml)
+Build the image locally from this repo (there isn't a published image for the current FastAPI version yet):
 
-Edit the variables with your keys.
-
-Run it:
-```
-docker-compose up -d
+```bash
+docker build -t hardcover-ai-librarian:latest .
 ```
 
-
-### Option without docker-compose
-Run this command in your terminal. Replace `YOUR_TOKEN` with your actual keys. You can omit the AI keys you aren't using.
+Then either run it directly:
 
 ```bash
 docker run -d \
@@ -52,23 +51,45 @@ docker run -d \
   -e HARDCOVER_TOKEN="your_hardcover_token_here" \
   -e GEMINI_KEY="your_google_api_key_here" \
   --name hardcover-librarian \
-  dukkokun/hardcover-ai-librarian:latest
+  hardcover-ai-librarian:latest
 ```
+
+...or use Compose for a persistent setup — copy [`docker-compose-prod.yml`](./docker-compose-prod.yml), fill in your keys, and run:
+
+```bash
+docker compose -f docker-compose-prod.yml up -d --build
+```
+
 Open your browser to: http://localhost:8501
-Note: The app automatically handles the Bearer  prefix for Hardcover, so you can paste the raw token or the full string.
+
+Note: The app automatically handles the `Bearer ` prefix for Hardcover, so you can paste the raw token or the full string.
 
 ---
+
+## 🧑‍💻 Local Development (without Docker)
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+uvicorn app.main:app --reload --port 8501
+```
+
+Run the test suite with:
+
+```bash
+pytest
+```
+
+---
+
 ## ⚙️ Environment Variables
 
-- HARDCOVER_TOKEN	Required. Your personal API token from Hardcover.app.
-
-- GEMINI_KEY	Optional. Google AI Studio API Key.
-
-- OPENAI_KEY	Optional. OpenAI API Key.
-
-- ANTHROPIC_KEY	Optional. Anthropic Claude API Key.
-
-- SESSION_SECRET	Optional. Signs the session cookie used to remember keys you enter in the browser (as opposed to the env vars above). Set this to a fixed random string if you want browser-entered keys to survive a container restart; otherwise a new one is generated each boot and browser-entered keys are simply forgotten.
+- `HARDCOVER_TOKEN` — Required. Your personal API token from Hardcover.app.
+- `GEMINI_KEY` — Optional. Google AI Studio API Key.
+- `OPENAI_KEY` — Optional. OpenAI API Key.
+- `ANTHROPIC_KEY` — Optional. Anthropic Claude API Key.
+- `SESSION_SECRET` — Optional. Signs the session cookie used to remember keys you enter in the browser (as opposed to the env vars above). Set this to a fixed random string if you want browser-entered keys to survive a container restart; otherwise a new one is generated each boot and browser-entered keys are simply forgotten.
 
 Any of the four key variables can also be left unset and entered directly in the browser's Settings panel instead — they're editable there regardless of how they were originally provided.
 
@@ -76,23 +97,23 @@ Any of the four key variables can also be left unset and entered directly in the
 
 ## ❓ Troubleshooting
 
-"Could not fetch models"
+**"Could not fetch models"**
 
-Ensure your API Key is valid and has access to the relevant models (e.g., gemini-1.5-flash).
+Ensure your API Key is valid and has access to the relevant models. Check the Docker logs for detailed debug output: `docker logs hardcover-librarian`.
 
-Check the Docker logs for detailed debug output: docker logs hardcover-librarian.
+**"Bearer token invalid"**
 
-"Bearer token invalid"
+The app tries to auto-correct this, but ensure your `HARDCOVER_TOKEN` looks like a long string of random characters. It usually starts with `eyJ...`.
 
-The app tries to auto-correct this, but ensure your HARDCOVER_TOKEN looks like a long string of random characters. It usually starts with eyJ....
+**"Container crashes immediately"**
 
-"Container crashes immediately"
+Rebuild the image to make sure you're running the current code: `docker compose -f docker-compose-prod.yml up -d --build`.
 
-Ensure you are using the latest image: docker pull dukkokun/hardcover-ai-librarian:latest.
+**Skew search / autocomplete shows nothing**
 
-Verify you aren't mounting a directory over the .streamlit folder if you are using environment variables.
+It needs both a saved Hardcover token and at least 2 characters typed before it queries Hardcover's catalog. If keys were just changed, click **Save Keys** first.
 
---- 
+---
 
 ## 🤝 Contributing
 Pull requests are welcome! If you find a bug or want to add a new AI provider, feel free to open an issue.
