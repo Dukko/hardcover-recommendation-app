@@ -47,7 +47,12 @@ async def recommend_stream(
                 yield sse_event("done", "")
                 return
 
-            api_keys = {"Gemini": creds.gemini_key, "OpenAI": creds.openai_key, "Anthropic": creds.anthropic_key}
+            api_keys = {
+                "Gemini": creds.gemini_key,
+                "OpenAI": creds.openai_key,
+                "Anthropic": creds.anthropic_key,
+                "OpenRouter": creds.openrouter_key,
+            }
             if not api_keys.get(provider):
                 yield sse_event("error", render_error(f"No API key configured for {provider}."))
                 yield sse_event("done", "")

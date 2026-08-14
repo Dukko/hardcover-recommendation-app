@@ -87,9 +87,10 @@ pytest
 - `GEMINI_KEY` — Optional. Google AI Studio API Key.
 - `OPENAI_KEY` — Optional. OpenAI API Key.
 - `ANTHROPIC_KEY` — Optional. Anthropic Claude API Key.
+- `OPENROUTER_KEY` — Optional. OpenRouter API Key (access to hundreds of models via one key).
 - `SESSION_SECRET` — Optional. Signs the session cookie used to remember keys you enter in the browser (as opposed to the env vars above). Set this to a fixed random string if you want browser-entered keys to survive a container restart; otherwise a new one is generated each boot and browser-entered keys are simply forgotten.
 
-Any of the four key variables can also be left unset and entered directly in the browser's Settings panel instead — they're editable there regardless of how they were originally provided.
+Any of the five key variables can also be left unset and entered directly in the browser's Settings panel instead — they're editable there regardless of how they were originally provided.
 
 ---
 

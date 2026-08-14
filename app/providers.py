@@ -63,6 +63,27 @@ class AnthropicProvider:
             raise Exception(f"Anthropic API error: {str(e)}") from e
 
 
+class OpenRouterProvider:
+    def __init__(self, api_key: str, model_name: str):
+        self.client = OpenAI(api_key=api_key, base_url="https://openrouter.ai/api/v1")
+        self.model_name = model_name or "openai/gpt-4o-mini"
+
+    def get_recommendations(self, prompt: str) -> tuple[str, str]:
+        try:
+            response = self.client.chat.completions.create(
+                model=self.model_name,
+                messages=[
+                    {"role": "system", "content": "You are an elite literary curator."},
+                    {"role": "user", "content": prompt},
+                ],
+                temperature=0.7,
+                max_tokens=2000,
+            )
+            return response.choices[0].message.content, self.model_name
+        except Exception as e:
+            raise Exception(f"OpenRouter API error: {str(e)}") from e
+
+
 def get_provider(provider_name: str, api_key: str, specific_model: str | None = None):
     if provider_name == "Gemini":
         return GeminiProvider(api_key, specific_model)
@@ -70,6 +91,8 @@ def get_provider(provider_name: str, api_key: str, specific_model: str | None = 
         return OpenAIProvider(api_key, specific_model)
     elif provider_name == "Anthropic":
         return AnthropicProvider(api_key, specific_model)
+    elif provider_name == "OpenRouter":
+        return OpenRouterProvider(api_key, specific_model)
     raise ValueError("Invalid provider selected")
 
 
@@ -99,6 +122,24 @@ def _fetch_openai_models(api_key: str) -> list[str]:
             and not any(x in m.id.lower() for x in ["instruct", "realtime", "audio", "voice"])
         ]
         valid_models.sort(reverse=True)
+        return valid_models
+    except Exception:
+        return []
+
+
+async def get_available_openrouter_models(api_key: str) -> list[str]:
+    async def factory():
+        return await asyncio.to_thread(_fetch_openrouter_models, api_key)
+
+    return await model_cache.aget_or_set(("openrouter", api_key), factory)
+
+
+def _fetch_openrouter_models(api_key: str) -> list[str]:
+    try:
+        client = OpenAI(api_key=api_key, base_url="https://openrouter.ai/api/v1")
+        models = client.models.list()
+        valid_models = [m.id for m in models.data]
+        valid_models.sort()
         return valid_models
     except Exception:
         return []

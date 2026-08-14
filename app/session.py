@@ -11,6 +11,7 @@ class Credentials:
     gemini_key: str
     openai_key: str
     anthropic_key: str
+    openrouter_key: str
 
 
 def get_credentials(request: Request) -> Credentials:
@@ -21,6 +22,7 @@ def get_credentials(request: Request) -> Credentials:
         gemini_key=overrides.get("gemini_key") or settings.gemini_key,
         openai_key=overrides.get("openai_key") or settings.openai_key,
         anthropic_key=overrides.get("anthropic_key") or settings.anthropic_key,
+        openrouter_key=overrides.get("openrouter_key") or settings.openrouter_key,
     )
 
 
@@ -30,6 +32,7 @@ def set_credentials(request: Request, credentials: Credentials) -> None:
         "gemini_key": credentials.gemini_key,
         "openai_key": credentials.openai_key,
         "anthropic_key": credentials.anthropic_key,
+        "openrouter_key": credentials.openrouter_key,
     }
 
 
