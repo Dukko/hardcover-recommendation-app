@@ -37,12 +37,14 @@ async def save_credentials(
     gemini_key: str = Form(""),
     openai_key: str = Form(""),
     anthropic_key: str = Form(""),
+    openrouter_key: str = Form(""),
 ):
     creds = Credentials(
         hardcover_token=hardcover_token.strip(),
         gemini_key=gemini_key.strip(),
         openai_key=openai_key.strip(),
         anthropic_key=anthropic_key.strip(),
+        openrouter_key=openrouter_key.strip(),
     )
     set_credentials(request, creds)
     context = await build_settings_context(creds)

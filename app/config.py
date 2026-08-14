@@ -12,6 +12,7 @@ class Settings(BaseSettings):
     gemini_key: str = ""
     openai_key: str = ""
     anthropic_key: str = ""
+    openrouter_key: str = ""
     # Signs the session cookie that holds browser-entered key overrides. Set this
     # explicitly (env var SESSION_SECRET) if you want those overrides to survive a
     # container restart -- otherwise a new random secret is generated every boot.

@@ -2,6 +2,7 @@ from app.providers import (
     get_available_anthropic_models,
     get_available_gemini_models,
     get_available_openai_models,
+    get_available_openrouter_models,
 )
 from app.session import Credentials
 
@@ -9,6 +10,7 @@ PROVIDER_KEY_ATTR = {
     "Gemini": "gemini_key",
     "OpenAI": "openai_key",
     "Anthropic": "anthropic_key",
+    "OpenRouter": "openrouter_key",
 }
 
 
@@ -23,6 +25,8 @@ async def fetch_models_for_provider(provider: str, creds: Credentials) -> list[s
         return await get_available_openai_models(creds.openai_key)
     if provider == "Anthropic":
         return await get_available_anthropic_models(creds.anthropic_key)
+    if provider == "OpenRouter":
+        return await get_available_openrouter_models(creds.openrouter_key)
     return []
 
 
